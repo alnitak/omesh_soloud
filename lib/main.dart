@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_soloud/flutter_soloud.dart';
@@ -9,6 +11,9 @@ void main() async {
 
   /// Enable acquisition of audio data.
   SoLoud.instance.setVisualizationEnabled(true);
+
+  /// Eventually smooth the "release" of FFT values.
+  SoLoud.instance.setFftSmoothing(0.95);
 
   runApp(const MyApp());
 }
@@ -155,6 +160,17 @@ class AudioMeshState extends State<AudioMesh>
     }
   }
 
+  /// Compute FFT average from index [fromIndex]+[shift] to index
+  /// [toIndex]+[shift].
+  /// The [shift] is used to not consider the first [shift] FFT values.
+  double averageFft(int fromIndex, int toIndex, int shift) {
+    var fft = 0.0;
+    for (int i = fromIndex + shift; i < toIndex + shift; i++) {
+      fft += audioData!.getLinearFft(SampleLinear(i));
+    }
+    return fft / (toIndex - fromIndex);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.sound == null) return const SizedBox.shrink();
@@ -162,7 +178,7 @@ class AudioMeshState extends State<AudioMesh>
     for (int n = 0; n < 6; n++) {
       /// The FFT data is composed by 256 values. Here only the lower meaningful
       /// set are taken. To get audio data (volume), use [getLinearWave()].
-      final fft = audioData!.getLinearFft(SampleLinear(n * 6 + 10));
+      final fft = averageFft(n * 20, n * 20 + 20, 5);
       OVertex newVertex = OVertex(
         0.2 * n,
         1.0 - fft,
